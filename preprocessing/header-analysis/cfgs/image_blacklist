@@ -1,0 +1,9 @@
+CGPostMouseEvent
+CGColorConversionInfoCreateFromList
+CGAffineTransformConcat
+CGColorConversionInfoCreateFromListWithArguments
+CGAffineTransformEqualToTransform
+CGPatternCreate
+CGRectApplyAffineTransform
+CGPathApplyWithBlock
+CGPostScrollWheelEvent

@@ -1,0 +1,24 @@
+#CFArrayApplyFunction
+#CGFontRelease
+#CGDataProviderRelease
+#
+CGColorConversionInfoCreateFromList
+CGAffineTransformConcat
+CGColorConversionInfoCreateFromListWithArguments
+CGAffineTransformEqualToTransform
+CGPatternCreate
+CGRectApplyAffineTransform
+CGPostScrollWheelEvent
+CGPostMouseEvent
+# blockpointer
+CGPathApplyWithBlock
+CTFontManagerUnregisterFontDescriptors
+CTFontManagerRegisterFontDescriptors
+CTLineEnumerateCaretOffsets
+CTFontManagerCreateFontRequestRunLoopSource
+CTFontManagerRegisterFontURLs
+CTFontManagerUnregisterFontURLs
+# not available on MAC OS
+CTFontManagerRequestFonts
+CTFontManagerRegisterFontsWithAssetNames
+CTFontManagerCopyRegisteredFontDescriptors

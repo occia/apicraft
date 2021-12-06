@@ -1,0 +1,17 @@
+# special ^ thing
+AudioServicesPlaySystemSoundWithCompletion
+AudioServicesPlayAlertSoundWithCompletion
+AudioComponentInstantiate
+# not available on MacOS
+AudioSessionGetProperty
+AudioSessionSetProperty
+AudioSessionInitialize
+AudioSessionSetActive
+AudioOutputUnitPublish
+AudioSessionGetPropertySize
+AudioSessionRemovePropertyListener
+AudioComponentGetLastActiveTime
+AudioSessionSetActiveWithFlags
+AudioComponentCopyIcon
+AudioSessionAddPropertyListener
+AudioSessionRemovePropertyListenerWithUserData

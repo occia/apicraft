@@ -1,0 +1,347 @@
+[knowledge_base]
+
+[knowledge_base.types]
+
+[knowledge_base.types.a]
+
+type = "CFStringRef"
+[knowledge_base.types.a.gen]
+code = '''CFSTR("random")'''
+
+[knowledge_base.types.b]
+
+type = "struct __CFError **"
+[knowledge_base.types.b.gen]
+code = '''nil'''
+
+[knowledge_base.types.c]
+
+type = "CGContextRef"
+[knowledge_base.types.c.gen]
+code = '''(CGContextRef)[[NSGraphicsContext currentContext] graphicsPort]'''
+
+[knowledge_base.types.d]
+
+type = "CGColorSpaceRef"
+[knowledge_base.types.d.gen]
+code = '''CGColorSpaceCreateDeviceCMYK()'''
+
+[knowledge_base.types.e]
+
+type = "CGDisplayModeRef"
+[knowledge_base.types.e.gen]
+code = '''CGDisplayCopyDisplayMode(CGMainDisplayID())'''
+
+
+[knowledge_base.funcargs]
+
+[knowledge_base.funcargs.a]
+
+must_used = true
+func = "CTFramesetterCreateWithAttributedString"
+tag = "arg0"
+[knowledge_base.funcargs.a.gen]
+code = '''(CFAttributedStringRef)(harness_attrstr)'''
+
+[knowledge_base.funcargs.b]
+
+func = "CTFramesetterCreateFrame"
+tag = "arg2"
+[knowledge_base.funcargs.b.gen]
+code = '''CGPathCreateMutable()'''
+
+[knowledge_base.funcargs.c]
+
+must_used = true
+func = "CTLineCreateWithAttributedString"
+tag = "arg0"
+[knowledge_base.funcargs.c.gen]
+code = '''(CFAttributedStringRef)(harness_attrstr)'''
+
+[knowledge_base.funcargs.d]
+
+must_used = true
+func = "CTTypesetterCreateWithAttributedString"
+tag = "arg0"
+[knowledge_base.funcargs.d.gen]
+code = '''(CFAttributedStringRef)(harness_attrstr)'''
+
+[knowledge_base.input]
+
+skeleton_backward = false
+must_contain = true
+init_funcs = [
+	'CTTypesetterCreateWithAttributedString',
+	'CTFramesetterCreateWithAttributedString',
+	'CTLineCreateWithAttributedString',
+]
+k_steps_to_core = 0
+
+[knowledge_base.input.uniq_funcs]
+1 = [ [ 'CTTypesetterCreateWithAttributedString', 'CTFramesetterCreateWithAttributedString', 'CTLineCreateWithAttributedString' ] ]
+#1 = [ [ 'CTFramesetterCreateWithAttributedString' ] ]
+
+
+
+[harness_wrapper]
+
+prolog = '''
+#include <dlfcn.h>
+#include <stdint.h>
+#include <sys/shm.h>
+#include <dirent.h>
+#include <stdio.h>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <fstream>
+
+#include <Foundation/Foundation.h>
+#import <CoreGraphics/CoreGraphics.h>
+#import <CoreText/CoreText.h>
+#import <Cocoa/Cocoa.h>
+
+
+#include "frida-gum.h"
+
+using namespace std;
+
+#define u8 uint8_t
+
+typedef struct {
+    const char* module_name;
+    GumAddress base_address; 
+    guint64 code_start, code_end;
+} range_t;
+
+int g_module_num = 0;
+string g_cov_record;
+
+static void on_basic_block(GumCpuContext* context, gpointer user_data) {
+    guint64 current_pc = GUM_ADDRESS (user_data);
+    // printf("Entered BB @ 0x%llx\n", current_pc);
+    // printf("faultaddr: 0x%llx\n", current_pc);
+
+}
+
+void instr_basic_block(GumStalkerIterator* iterator, GumStalkerOutput* output, gpointer user_data) {
+    // range_t* range = (range_t*) user_data;
+    range_t *modules_instr_range = (range_t *)user_data;
+
+
+    const cs_insn* instr;
+    gboolean begin = TRUE;
+    if (g_module_num == 0) {
+        printf("[D] g_module_num is zero, return now.\n");
+        exit(1);
+    }
+    while (gum_stalker_iterator_next(iterator, &instr)) {
+        if (begin) {
+            for (int i = 0; i < g_module_num; i++) {
+                // guint64 current_pc = instr->address - range->base_address;
+                guint64 current_pc = instr->address - modules_instr_range[i].base_address;
+                if (modules_instr_range[i].code_start <= current_pc && modules_instr_range[i].code_end >= current_pc) {
+                    //   printf("Transforming BB @ 0x%llx\n", current_pc);
+                    stringstream bb_cov_record;
+                    // printf("%s+0x%llx\n", modules_instr_range[i].module_name, current_pc);
+                    bb_cov_record << modules_instr_range[i].module_name << "+0x" << std::hex << current_pc << endl;
+                    g_cov_record.append(bb_cov_record.str());
+                    gum_stalker_iterator_put_callout(iterator, on_basic_block, GSIZE_TO_POINTER (current_pc), NULL);
+                    begin = FALSE;
+                    break;
+                }
+            }
+
+        }
+
+        gum_stalker_iterator_keep(iterator);
+    }
+}
+
+/* Because this CAN be called more than once, it will return the LAST range */
+static int enumerate_ranges(const GumRangeDetails* details, gpointer user_data) {
+    GumMemoryRange* code_range = (GumMemoryRange*) user_data;
+    memcpy(code_range, details->range, sizeof(*code_range));
+    return 0;
+}
+'''
+
+main = '''
+int main(int argc, const char *argv[]) {
+    if (argc < 3) {
+        printf("Usage: %s path/to/file output_file module_name1 module_name2 ...\n", argv[0]);
+        return 0;
+    }
+
+    // Must manually load libOpenEXR
+    dlopen("/System/Library/Frameworks/ImageIO.framework/Versions/A/Resources/libOpenEXR.dylib", RTLD_LAZY);
+    dlopen("/System/Library/PrivateFrameworks/AppleVPA.framework/AppleVPA", RTLD_LAZY);
+    dlopen("/System/Library/Extensions/AppleIntelKBLGraphicsVADriver.bundle/Contents/MacOS/AppleIntelKBLGraphicsVADriver", RTLD_LAZY);
+    dlopen("/System/Library/CoreServices/RawCamera.bundle/Contents/MacOS/RawCamera", RTLD_LAZY);
+
+    // frida-gum instrumentation code
+    gum_init_embedded();
+
+    if (!gum_stalker_is_supported()) {
+        gum_deinit_embedded();
+        return 1;
+    }
+
+    GumStalker *stalker = gum_stalker_new();
+
+    g_module_num = argc - 3;
+    range_t *modules_instr_range = (range_t *)malloc(g_module_num * sizeof(range_t));
+    
+    for (int i = 3; i < argc; i++) {
+
+        const char *module_name = (const char *)argv[i];
+        GumAddress base_address = gum_module_find_base_address(module_name);
+
+        GumMemoryRange code_range;
+        gum_module_enumerate_ranges(module_name, GUM_PAGE_RX, enumerate_ranges, &code_range);
+        guint64 code_start = code_range.base_address - base_address;
+        guint64 code_end = (code_range.base_address + code_range.size) - base_address;
+
+        range_t instr_range = {
+            module_name, base_address, code_start, code_end
+        };
+        modules_instr_range[i - 3] = instr_range;
+    }
+
+    GumStalkerTransformer* transformer = gum_stalker_transformer_make_from_callback(
+        instr_basic_block, modules_instr_range, NULL);
+
+    // create output file, so even though program exit unexpected we can still have the output file, which can be used to analyze
+    ofstream out_file((char *)argv[2]);
+    out_file.close();
+
+    gum_stalker_follow_me(stalker, transformer, NULL);
+
+    // put harness code here
+    char * input_files = strdup(argv[1]);
+    char * token = strtok(input_files, " ");
+    while (token != NULL) {
+        const char *(fake_argv)[2];
+        fake_argv[0] = argv[0];
+        fake_argv[1] = token;
+        printf("harness handling %s\n", token);
+        harness_main(2, fake_argv);
+
+        token = strtok(NULL, " ");
+    }
+    free(input_files);
+    // put harness code here
+
+    gum_stalker_unfollow_me(stalker);
+
+    // write coverage into file
+    ofstream out((char *)argv[2]);
+    out << g_cov_record;
+    out.close();
+
+    // gum process code
+    free(modules_instr_range);
+    while (gum_stalker_garbage_collect(stalker)) {
+        g_usleep(10000);
+    }
+
+    g_object_unref(stalker);
+    g_object_unref(transformer);
+    gum_deinit_embedded();
+    //printf("finish running\n");
+    return 0;
+}
+'''
+
+harness_prolog = '''
+    NSString* path = [NSString stringWithUTF8String:argv[1]];
+    NSURL *rtfURL = [NSURL fileURLWithPath:path];
+    NSAttributedString *harness_attrstr = [[NSAttributedString alloc] initWithURL:rtfURL options:nil documentAttributes:nil error:nil];
+'''
+
+harness_epilog = ''''''
+
+[harness_wrapper.funcs]
+
+#[harness_wrapper.comment_this_to_enable]
+a = '''
+char * create_input_data(const char * filename, long *harness_len)
+{
+    FILE * pFile;
+    long lSize;
+    char * buffer;
+    size_t result;
+    
+    pFile = fopen (filename, "rb" ); // use binary mode to open file.
+    
+    if (pFile==NULL)
+    {
+        fputs ("File error",stderr);
+        exit (1);
+    }
+    
+    fseek (pFile , 0 , SEEK_END); // get the file size
+    lSize = ftell (pFile);
+    rewind (pFile);
+    
+    buffer = (char*) malloc (sizeof(char)*lSize); // malloc file size
+    if (buffer == NULL)
+    {
+        fputs ("Memory error",stderr);
+        exit (2);
+    }
+    
+    result = fread (buffer,1,lSize,pFile); // copy file to buf
+    if (result != lSize)
+    {
+        fputs ("Reading error",stderr);
+        exit (3);
+    }
+    
+    *harness_len = lSize;
+    return buffer;
+}
+'''
+
+[dynamic]
+
+shell = '''
+#!/bin/bash
+
+#set -x
+set -e
+
+# in
+CODE="%s"
+BIN="%s"
+
+# out
+COV_JSON="%s"
+
+# parallel index
+IDX="%s"
+
+PROG_OPT="../samples/rtf-samples/file-sample_100kB.rtf ../samples/rtf-samples/sample2.rtf ../samples/rtf-samples/sample.rtf ../samples/rtf-samples/sample3.rtf"
+
+[ $# -eq 0 ] && "you want compile or dyninfo?" && exit 1
+
+# 1. compile
+if [ $1 == compile ]
+then
+    clang++ -o "${BIN}" "${CODE}" -O0 -I ../workdir/frida/ -L ../workdir/frida/ -l frida-gum -ldl -lresolv -lpthread -fsanitize=address -framework Foundation -framework CoreFoundation -framework CoreText -framework CoreGraphics -framework AppKit
+fi
+
+if [ $1 == dyninfo ]
+then
+    # 2. use tinyinst to collect cov
+    export ASAN_OPTIONS=symbolize=0
+    echo -n > ${COV_JSON}
+    
+    #gtimeout -s SIGKILL 1m "${BIN}" "${PROG_OPT}" "${COV_JSON}" Foundation CoreText CoreFoundation >/dev/null 2>/dev/null
+    gtimeout -s SIGKILL 1m "${BIN}" "${PROG_OPT}" "${COV_JSON}" CoreText CoreFoundation >/dev/null 2>/dev/null
+    
+    sudo chmod 777 ${COV_JSON}
+
+    unset ASAN_OPTIONS
+fi
+'''
