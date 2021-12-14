@@ -19,7 +19,7 @@ As stated in the paper, the general workflow of APICraft should be:
 - Collect the dependencies (data and control dependencies) and combine the dependencies
 
 You can follow the readme file inside the subdirectories for the detail of each step.
-We're making an example based on one of the evaluated attack surface to guide interesting users to reproduce the whole workflow of APICraft.
+We're making an example based on one of the evaluated attack surface to guide interested users to reproduce the whole workflow of APICraft.
 
 # Cite
 
